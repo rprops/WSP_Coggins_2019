@@ -4,14 +4,9 @@ library("gridExtra")
 library("ggplot2")
 library("RColorBrewer")
 
-### Samples were diluted 
-# dilution <- 10
-
 path = "data"
 
 flowData <- read.flowSet(path = path, transformation = FALSE, pattern=".fcs")
-
-attributes(flowData)
 
 flowData_transformed <- transform(flowData,`488nm 530/30BP-A`=asinh(`488nm 530/30BP-A`), 
                                   `SSC-A`=asinh(`SSC-A`), 
@@ -60,7 +55,8 @@ results2 <- results[results$Staining=="S",]
 results2 <- droplevels(results2)
 
 ### Perform beta-diversity analysis but only for pond/splitter samples
-fbasis <- flowBasis(flowData_transformed[results$Staining=="S" & results$Timepoint!="T0"], nbin=128, param=param, bw=0.01)
+flowData_beta <- FCS_resample(flowData_transformed[results$Staining=="S" & results$Timepoint!="T0"], replace=TRUE)
+fbasis <- flowBasis(flowData_beta, nbin=128, param=param, bw=0.01)
 beta <- beta_div_fcm(fbasis, ord.type="PCoA")
 var <- round(vegan::eigenvals(beta)/sum(vegan::eigenvals(beta))*100,1)
 beta_results <- data.frame(beta$points, meta[meta$Staining=="S" & results$Timepoint!="T0",])
@@ -103,3 +99,39 @@ b2 <- ggplot(data=beta_results[beta_results$Timepoint!="T0",], aes(x=X1, y=X2, c
   theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"),
         title=element_text(size=20), legend.text=element_text(size=14))
 
+grid.arrange(b1, b2, ncol=2)
+
+### Lets make some contrasts between the ponds
+# P1 vs. P2 at timepoint 0
+ct1 <- fp_contrasts(fbasis, comp1=beta_results$Pond=="P1" & beta_results$Timepoint=="T1", comp2=beta_results$Pond=="P2" & beta_results$Timepoint=="T1", param=param[1:2],
+                    thresh = 0.1)
+# P1 vs. P2 at timepoint 3
+ct2 <- fp_contrasts(fbasis, comp1=beta_results$Pond=="P1" & beta_results$Timepoint=="T3", comp2=beta_results$Pond=="P2" & beta_results$Timepoint=="T3", param=param[1:2],
+                    thresh = 0.1)
+
+### Plot contrasts
+### Red/positive values indicate higher density for pond1.
+### blue/negative values indicate lower density for pond1.
+v1 <- ggplot2::ggplot(ct1, ggplot2::aes(`488nm 530/30BP-A`, `488nm 780/60BP-A`, z = Density))+
+  ggplot2::geom_tile(ggplot2::aes(fill=Density)) + 
+  ggplot2::geom_point(colour="gray", alpha=0.4)+
+  ggplot2::scale_fill_distiller(palette="RdBu", na.value="white", limits=c(-0.6,0.4)) + 
+  ggplot2::stat_contour(ggplot2::aes(fill=..level..), geom="polygon", binwidth=0.1)+
+  ggplot2::theme_bw()+
+  ggplot2::geom_contour(color = "white", alpha = 1)+
+  ggplot2::labs(title="Pond1 - Pond2 at T1")+
+  ylim(50,85)+
+  xlim(50,90)
+
+v2 <- ggplot2::ggplot(ct2, ggplot2::aes(`488nm 530/30BP-A`, `488nm 780/60BP-A`, z = Density))+
+  ggplot2::geom_tile(ggplot2::aes(fill=Density)) + 
+  ggplot2::geom_point(colour="gray", alpha=0.4)+
+  ggplot2::scale_fill_distiller(palette="RdBu", na.value="white", limits=c(-0.6,0.4)) + 
+  ggplot2::stat_contour(ggplot2::aes(fill=..level..), geom="polygon", binwidth=0.1)+
+  ggplot2::theme_bw()+
+  ggplot2::geom_contour(color = "white", alpha = 1)+
+  ggplot2::labs(title="Pond1 - Pond2 at T3")+
+  ylim(50,85)+
+  xlim(50,90)
+
+grid.arrange(v1, v2, ncol=2)
