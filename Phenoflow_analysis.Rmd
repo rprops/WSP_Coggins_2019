@@ -1,0 +1,217 @@
+---
+title: "Phenoflow analysis"
+author: "Ruben Props"
+date: "27 december 2016"
+output: html_document
+---
+
+Exploratory analysis for Liah Coggins.
+
+**Description of data:**  
+_I only have one sample for each location, but I have 3 time points and for these I have 2 ponds (P1/P2) at the inlet and outlet, and the splitter (SP) (i.e., there are 5 files for each date). I have also included unstained samples that were run for each one (if required). E.g., `T1_P1_I`` = timepoint 1, pond 1, inlet. Also, O = outlet, SP = splitter, and an appended U = unstained. There are also files for cultures I run, one of E. coli, one of cultured wastewater (WW), and one of purple phototrophic bacteria (PPB), should these be useful to you._
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = TRUE, 
+                      echo = TRUE, 
+                      cache = TRUE,
+                      include = TRUE,
+                      collapse = FALSE,
+                      dependson = NULL,
+                      engine = "R", # Chunks will always have R code, unless noted
+                      error = TRUE,
+                      fig.path="Figures/cached/",  # Set the figure options
+                      fig.align = "center"
+                      )
+```
+
+# Load libraries
+```{r load-libraries}
+library("Phenoflow")
+library("dplyr")
+library("gridExtra")
+library("ggplot2")
+library("RColorBrewer")
+# Settings for xyplot
+my.settings <- list(
+  strip.background=list(col="transparent"),
+  strip.border=list(col="transparent", cex=5),
+  gate=list(col=c("black"),fill="lightblue", alpha=0.5,lwd=4),
+  panel.background=list(col="lightgray"),
+  background=list(col="white"))
+```
+
+# Analysis
+Here we follow the standard analysis workflow described here: https://github.com/rprops/Phenoflow_package/wiki/Phenotypic-diversity-analysis.
+```{r denoising, fig.width = 10, fig.height = 5}
+
+# Import data
+path = "data"
+flowData <- read.flowSet(path = path, transformation = FALSE, pattern=".fcs")
+
+# Select the channels of interest 
+flowData_transformed <- transform(flowData,`488nm 530/30BP-A`=asinh(`488nm 530/30BP-A`), 
+                                  `SSC-A`=asinh(`SSC-A`), 
+                                  `488nm 780/60BP-A`=asinh(`488nm 780/60BP-A`), 
+                                  `FSC-A`=asinh(`FSC-A`))
+param=c("488nm 530/30BP-A", "488nm 780/60BP-A","SSC-A","FSC-A")
+flowData_transformed = flowData_transformed[,param]
+remove(flowData)
+
+# Create a PolygonGate for denoising the dataset
+sqrcut1 <- matrix(c(5.5,5.5,2,2,15,15,
+                    3,6.8,6.8,15,15,3),ncol=2, nrow=6)
+colnames(sqrcut1) <- c("488nm 530/30BP-A","488nm 780/60BP-A")
+polyGate1 <- polygonGate(.gate=sqrcut1, filterId = "Total Cells")
+
+# Use two samples to evaluate the gate
+xyplot(`488nm 780/60BP-A`~`488nm 530/30BP-A`, data=flowData_transformed[5:6],
+       filter=polyGate1,
+       xbins=200,
+       smooth=FALSE, xlim=c(0,14),ylim=c(0,16),
+       par.settings=my.settings,
+       margin=FALSE
+      )
+
+# Isolate only the cellular information based on the polyGate1
+flowData_transformed <- Subset(flowData_transformed, polyGate1)
+
+# Normalize all data based on the max 488nm 530/30BP-A intensity
+summary <- fsApply(x=flowData_transformed,FUN=function(x) apply(x, 2, max),use.exprs=TRUE)
+max = max(summary[,1])
+mytrans <- function(x) x/max
+flowData_transformed <- transform(flowData_transformed,`488nm 530/30BP-A`=mytrans(`488nm 530/30BP-A`),
+                                  `488nm 780/60BP-A`=mytrans(`488nm 780/60BP-A`), 
+                                  `SSC-A`=mytrans(`SSC-A`),
+                                  `FSC-A`=mytrans(`FSC-A`))
+```
+
+Now that we've imported, denoised and normalized the data, we only proceed with the stained data.
+Based on the sample names we extract the metadata. We also resample to the minimum sample size to account for sample size effects. This is necessary for sample sizes < 10,000.
+
+```{r extract-meta}
+# Extract metadata from sample names
+meta <-strsplit(gsub(flowCore::sampleNames(flowData_transformed), pattern=".fcs", replacement=""), "_")
+meta <- data.frame(do.call(rbind,meta))
+colnames(meta) <- c("Timepoint", "Pond", "Position", "Staining")
+head(meta)
+
+# Select the stained data
+flowData_transformed <- flowData_transformed[meta$Staining == "S"]
+
+# Resample to minimum sample size
+flowData_transformed <- FCS_resample(flowData_transformed, replace = TRUE)
+```
+
+We are now ready to run the alpha-diversity analysis. Restricted the number of bootstraps to 10 for the sake of computational speed.
+
+```{r run-alpha-div}
+# Run alpha diversity analysis
+Diversity.ww <- Diversity_rf(flowData_transformed, d=3, param = param, R = 10)
+
+# Merge results with metadata
+results <- data.frame(Diversity.ww, meta[meta$Staining=="S",])
+```
+
+Next perform the beta-diversity analysis with only the Pond/Splitter samples (remove axenic cultures/WW)
+```{r run-beta-div}
+# Select the required samples
+flowData_beta <- flowData_transformed[-c(1:3)]
+
+# Create fingerprint
+fbasis <- flowBasis(flowData_beta, nbin=128, param=param, bw=0.01)
+
+# Calculate PCoA
+beta <- beta_div_fcm(fbasis, ord.type="PCoA")
+
+# Calculate variance explained by axes
+var <- round(vegan::eigenvals(beta)/sum(vegan::eigenvals(beta))*100,1)
+
+# Merge results with metadata
+beta_results <- data.frame(beta$points, meta[meta$Timepoint!="T0" & meta$Staining =="S",])
+```
+
+Finally lets make some contrasts between the fingerprints of P1 and P2 at timepoints T1 and T3 to see if there are different populations visible.
+```{r contrasts}
+### Lets make some contrasts between the ponds
+# P1 vs. P2 at timepoint 0
+ct1 <- fp_contrasts(fbasis, comp1=beta_results$Pond=="P1" & beta_results$Timepoint=="T1", comp2=beta_results$Pond=="P2" & beta_results$Timepoint=="T1", param=param[1:2],
+                    thresh = 0.1)
+# P1 vs. P2 at timepoint 3
+ct2 <- fp_contrasts(fbasis, comp1=beta_results$Pond=="P1" & beta_results$Timepoint=="T3", comp2=beta_results$Pond=="P2" & beta_results$Timepoint=="T3", param=param[1:2],
+                    thresh = 0.1)
+
+```
+
+The analyses are done, now lets plot the results.
+
+**Primary conclusions from the alpha-diversity analysis:**  
+Wastewater has the highest diversity, the pure strains have the lowest diversity, as expected (I've plotted these at timepoint 0). There is a shift in alpha-diversity visible. Pond2 and the splitter start at relatively low diversity but they increase over time, with the splitter community having the highest diversity at T3.
+
+```{r plot-alpha, fig.width = 8, fig.height = 5}
+a1 <- ggplot(data=results, aes(x=Timepoint,y=D2,fill=Pond))+
+  geom_point(shape=21, size=6)+
+  scale_color_brewer(palette="Accent")+
+  geom_errorbar(aes(ymin=D2-sd.D2, ymax=D2+sd.D2), width=0.05)+
+  theme_bw()+
+  labs(y="Phenotypic diversity (D2)", x="Timepoint")
+
+print(a1)
+```
+
+**Primary conclusions from the beta-diversity analysis:**  
+The difference between inlet and outlet becomes larger over time. The communities are really similar at T1 but differ more at T2/T3. There is a temporal shift noticeable as well for both the splitter as the ponds. Pond 2 starts out really similar to the splitter community but becomes much more similar to pond1 at T2/T3. Diversity of pond 1 is quite high at T1 but decrease to comparable values with P2/SP at T3. Overall the SP community remains relatively stable.
+
+```{r plot-beta, fig.width = 12, fig.height = 5}
+b1 <- ggplot(data=beta_results, aes(x=X1, y=X2, color=Pond, shape=Position))+
+  geom_point(size=8)+
+  theme_bw()+
+  scale_color_brewer(palette="Accent")+
+  labs(x = paste0("Axis1 (",var[1], "%)"), y = paste0("Axis2 (",var[2], "%)"),
+       fill="")+
+  theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"),
+        title=element_text(size=20), legend.text=element_text(size=14))
+
+b2 <- ggplot(data=beta_results[beta_results$Timepoint!="T0",], aes(x=X1, y=X2, color=Pond, shape=Timepoint))+
+  geom_point(size=8)+
+  theme_bw()+
+  scale_color_brewer(palette="Accent")+
+  labs(x = paste0("Axis1 (",var[1], "%)"), y = paste0("Axis2 (",var[2], "%)"),
+       fill="")+
+  theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"),
+        title=element_text(size=20), legend.text=element_text(size=14))
+
+grid.arrange(b1, b2, ncol=2)
+```
+
+**Primary conclusions from the contrasts:**  
+Differences between the ponds are bigger at T0 than they are at T3, which is in line with the beta and alpha diversity analysis. The differences are always located in two separate populations on the 488nm 530/30BP-A / 488nm 780/60BP-A channels.
+
+```{r plot-contrasts, fig.width = 12, fig.height = 5}
+### Plot contrasts
+### Red/positive values indicate higher density for pond1.
+### blue/negative values indicate lower density for pond1.
+v1 <- ggplot2::ggplot(ct1, ggplot2::aes(`488nm 530/30BP-A`, `488nm 780/60BP-A`, z = Density))+
+  ggplot2::geom_tile(ggplot2::aes(fill=Density)) + 
+  ggplot2::geom_point(colour="gray", alpha=0.4)+
+  ggplot2::scale_fill_distiller(palette="RdBu", na.value="white", limits=c(-0.6,0.4)) + 
+  ggplot2::stat_contour(ggplot2::aes(fill=..level..), geom="polygon", binwidth=0.1)+
+  ggplot2::theme_bw()+
+  ggplot2::geom_contour(color = "white", alpha = 1)+
+  ggplot2::labs(title="Pond1 - Pond2 at T1")+
+  ylim(50,85)+
+  xlim(50,90)
+
+v2 <- ggplot2::ggplot(ct2, ggplot2::aes(`488nm 530/30BP-A`, `488nm 780/60BP-A`, z = Density))+
+  ggplot2::geom_tile(ggplot2::aes(fill=Density)) + 
+  ggplot2::geom_point(colour="gray", alpha=0.4)+
+  ggplot2::scale_fill_distiller(palette="RdBu", na.value="white", limits=c(-0.6,0.4)) + 
+  ggplot2::stat_contour(ggplot2::aes(fill=..level..), geom="polygon", binwidth=0.1)+
+  ggplot2::theme_bw()+
+  ggplot2::geom_contour(color = "white", alpha = 1)+
+  ggplot2::labs(title="Pond1 - Pond2 at T3")+
+  ylim(50,85)+
+  xlim(50,90)
+
+grid.arrange(v1, v2, ncol=2)
+```
+
