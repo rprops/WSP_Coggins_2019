@@ -106,7 +106,7 @@ flowData_transformed <- FCS_resample(flowData_transformed, replace = TRUE)
 
 We are now ready to run the alpha-diversity analysis. Restricted the number of bootstraps to 10 for the sake of computational speed.
 
-```{r run-alpha-div}
+```{r run-alpha-div, message=FALSE}
 # Run alpha diversity analysis
 Diversity.ww <- Diversity_rf(flowData_transformed, d=3, param = param, R = 10)
 
