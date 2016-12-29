@@ -63,14 +63,16 @@ sqrcut1 <- matrix(c(5.5,5.5,2,2,15,15,
 colnames(sqrcut1) <- c("488nm 530/30BP-A","488nm 780/60BP-A")
 polyGate1 <- polygonGate(.gate=sqrcut1, filterId = "Total Cells")
 
-# Use two samples to evaluate the gate
-xyplot(`488nm 780/60BP-A`~`488nm 530/30BP-A`, data=flowData_transformed[5:6],
+# Use 4 samples to evaluate the gate
+# Unfortunately there is still some spillover from potential (in)organics in certain samples. But if we want to have a consistent gating strategy, this is unavoidable.
+xyplot(`488nm 780/60BP-A`~`488nm 530/30BP-A`, data=flowData_transformed[5:8],
        filter=polyGate1,
        xbins=200,
        smooth=FALSE, xlim=c(0,14),ylim=c(0,16),
        par.settings=my.settings,
        margin=FALSE
       )
+
 
 # Isolate only the cellular information based on the polyGate1
 flowData_transformed <- Subset(flowData_transformed, polyGate1)
