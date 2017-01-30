@@ -7,7 +7,7 @@ output: html_document
 
 Exploratory analysis for Liah Coggins.
 
-**Description of data:**  
+# Description of data: 
 _I only have one sample for each location, but I have 3 time points and for these I have 2 ponds (P1/P2) at the inlet and outlet, and the splitter (SP) (i.e., there are 5 files for each date). I have also included unstained samples that were run for each one (if required). E.g., `T1_P1_I`` = timepoint 1, pond 1, inlet. Also, O = outlet, SP = splitter, and an appended U = unstained. There are also files for cultures I run, one of E. coli, one of cultured wastewater (WW), and one of purple phototrophic bacteria (PPB), should these be useful to you._
 
 ```{r setup, include=FALSE}
@@ -217,3 +217,7 @@ v2 <- ggplot2::ggplot(ct2, ggplot2::aes(`488nm 530/30BP-A`, `488nm 780/60BP-A`, 
 grid.arrange(v1, v2, ncol=2)
 ```
 
+Report session information
+```{r session-info}
+sessionInfo()
+```
