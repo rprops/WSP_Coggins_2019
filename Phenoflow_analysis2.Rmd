@@ -31,6 +31,7 @@ library("dplyr")
 library("gridExtra")
 library("ggplot2")
 library("RColorBrewer")
+library("vegan")
 # Settings for xyplot
 my.settings <- list(
   strip.background=list(col="transparent"),
@@ -156,26 +157,38 @@ b1 <- ggplot(data=beta_results, aes(x=X1, y=X2, fill=Location, shape=Pond))+
   scale_shape_manual(values=c(21:25,8))+
   geom_point(size=8)+
   theme_bw()+
-  scale_color_brewer(palette="Accent")+
+  scale_fill_brewer(palette="Accent")+
   labs(x = paste0("Axis1 (",var[1], "%)"), y = paste0("Axis2 (",var[2], "%)"),
-       fill="")+
+       fill="Location", shape="")+
   theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"),
-        title=element_text(size=20), legend.text=element_text(size=14))+
+        title=element_text(size=20), legend.text=element_text(size=12))+
   guides(fill = guide_legend(override.aes = list(shape = 22)))
 
 b2 <- ggplot(data=beta_results, aes(x=X1, y=X2, fill=Location, shape=Sonicated))+
   scale_shape_manual(values=c(21,24))+
   geom_point(size=8)+
   theme_bw()+
-  scale_color_brewer(palette="Accent")+
+  scale_fill_brewer(palette="Accent")+
   labs(x = paste0("Axis1 (",var[1], "%)"), y = paste0("Axis2 (",var[2], "%)"),
-       fill="")+
+       fill="Location", shape="")+
   theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"),
-        title=element_text(size=20), legend.text=element_text(size=14))+
+        title=element_text(size=20), legend.text=element_text(size=12))+
   guides(fill = guide_legend(override.aes = list(shape = 22)))
 
 grid.arrange(b1, b2, ncol=2)
+png("beta_div2.png", width = 8, height = 6, res = 500, units = "in", pointsize = 6)
+print(b2)
+dev.off()
 ```
+Now test for effect of sonication using permanova. 
+
+```{r}
+# Calculate bray curtis distances matrix
+dist.fbasis <- vegdist(fbasis@basis)
+# run PERMANOVA
+adonis(dist.fbasis ~ Sonicated + Location, data = beta_results)
+```
+36.9% of the variance can be explained by the Location where the samples came from while 13.89% was explained by the sonciation.
 
 Report session information
 ```{r session-info}

@@ -29,8 +29,10 @@ knitr::opts_chunk$set(eval = TRUE,
 library("Phenoflow")
 library("dplyr")
 library("gridExtra")
+library("grid")
 library("ggplot2")
 library("RColorBrewer")
+source("functions.R")
 # Settings for xyplot
 my.settings <- list(
   strip.background=list(col="transparent"),
@@ -164,25 +166,33 @@ print(a1)
 The difference between inlet and outlet becomes larger over time. The communities are really similar at T1 but differ more at T2/T3. There is a temporal shift noticeable as well for both the splitter as the ponds. Pond 2 starts out really similar to the splitter community but becomes much more similar to pond1 at T2/T3. Diversity of pond 1 is quite high at T1 but decrease to comparable values with P2/SP at T3. Overall the SP community remains relatively stable.
 
 ```{r plot-beta, fig.width = 12, fig.height = 5}
-b1 <- ggplot(data=beta_results, aes(x=X1, y=X2, color=Pond, shape=Position))+
+b1 <- ggplot(data=beta_results, aes(x=X1, y=X2, fill=Pond, shape=Position))+
+  scale_shape_manual(values=c(21:25,8))+
   geom_point(size=8)+
   theme_bw()+
-  scale_color_brewer(palette="Accent")+
+  scale_fill_brewer(palette="Accent")+
   labs(x = paste0("Axis1 (",var[1], "%)"), y = paste0("Axis2 (",var[2], "%)"),
-       fill="")+
+       fill="Location", shape="Position")+
   theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"),
-        title=element_text(size=20), legend.text=element_text(size=14))
+        title=element_text(size=17), legend.text=element_text(size=10),
+        legend.position = "bottom")+
+  guides(fill = guide_legend(override.aes = list(shape = 22)))
 
-b2 <- ggplot(data=beta_results[beta_results$Timepoint!="T0",], aes(x=X1, y=X2, color=Pond, shape=Timepoint))+
+b2 <- ggplot(data=beta_results, aes(x=X1, y=X2, fill=Pond, shape=Timepoint))+
+  scale_shape_manual(values=c(21:25,8))+
   geom_point(size=8)+
   theme_bw()+
-  scale_color_brewer(palette="Accent")+
+  scale_fill_brewer(palette="Accent")+
   labs(x = paste0("Axis1 (",var[1], "%)"), y = paste0("Axis2 (",var[2], "%)"),
-       fill="")+
+       fill="Location", shape="Timepoint")+
   theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"),
-        title=element_text(size=20), legend.text=element_text(size=14))
+        title=element_text(size=17), legend.text=element_text(size=10),
+        legend.position = "bottom")+
+  guides(fill = guide_legend(override.aes = list(shape = 22)))
 
+# png("beta_div.png", width = 12, height = 6, res = 500, units = "in", pointsize = 6)
 grid.arrange(b1, b2, ncol=2)
+# dev.off()
 ```
 
 **Primary conclusions from the contrasts:**  
