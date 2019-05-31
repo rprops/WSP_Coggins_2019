@@ -1,1 +1,8 @@
-# WW_phenoflow
+# Analysis of flow cytometry data of Waste Stabilization Ponds
+
+## Title
+**Flow cytometry for the spatiotemporal characterisation of microbial communities in waste stabilisation ponds
+Liah X. Coggins, Irma Larma, Amy Hinchliffe, Ruben Props, and Anas Ghadouani**
+
+## Abstract
+Microbial communities are present in all parts of the water cycle, extending beyond the natural environment into treatment facilities, drinking water and wastewater networks. The functions of algal and bacterial communities are fundamental in the design of waste stabilisation ponds (WSPs) and control the treatment performance and efficiency; however the study of these WSP microbial communities has been challenging using traditional techniques. Flow cytometry (FCM) has been used widely as a rapid, culture-independent method of characterising algae and bacteria in a range of freshwater and marine environments, but its application to WSP wastewater samples has been relatively unexplored underexplored . In this study, a method for the characterisation of both algal and bacterial microbial populations in wastewater is presented and standardized, using cultures and field samples. This approach has shown thatWe show that SYTO 16 dye is more effective than SYBR Green I for the concurrent detection of both algae and bacteria in samples. Through gating and phenotypic diversity analysis, the FCM results show both spatial and temporal shifts in pond microbial communities. The ability to rapidly determine the spatiotemporal shifts in pond populations is not only important for the improvement of pond operation and monitoring strategies, but also for the planning and management to ensure that sustainable water systems can be achieved in the future. Flow cytometry could be developed intohas the potential to be come a diagnostic tool for ponds to assess treatment performance and determine the most optimal operating conditions.
